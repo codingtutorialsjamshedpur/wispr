@@ -1,6 +1,6 @@
 # Wispr
 
-A fork of [Wispr by Deepu Gupta](https://github.com/DeepuExplainsAi/ALWAYSWISPR) (upstream), maintained in this repository. Original authorship and copyright stay with Deepu Gupta under the [Apache License, Version 2.0](LICENSE) — see also [NOTICE](NOTICE).
+A fork of [Wispr by Deepu Gupta](https://github.com/DeepuExplainsAi/ALWAYSWISPR) (upstream), maintained in this repository. Original authorship and copyright stay with CTJ under the [Apache License, Version 2.0](LICENSE) — see also [NOTICE](NOTICE).
 
 
 
