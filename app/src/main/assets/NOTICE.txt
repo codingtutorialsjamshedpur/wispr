@@ -1,0 +1,14 @@
+Wispr by Deepu Gupta
+Copyright 2026 Deepu Gupta
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+Source: published by Deepu Gupta on GitHub.
+
+"Wispr by Deepu Gupta", the app name and logo identify the original project.
+Under section 6 of the Apache License, forks may not use them to suggest
+they are the official app. Please give your fork a different name and icon.
+
+Third-party components (bundled via Gradle, each under the Apache License 2.0):
+  - OkHttp (Square, Inc.)
+  - AndroidX WebKit (The Android Open Source Project)
+Speech and AI features call the Groq API (groq.com) with the user's own key.

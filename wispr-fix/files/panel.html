@@ -1,0 +1,405 @@
+<!doctype html>
+<!--
+  Wispr by Deepu Gupta: mini window (hold the bubble, or the Accessibility button in any app)
+  Copyright 2026 Deepu Gupta
+  Licensed under the Apache License, Version 2.0 (see LICENSE).
+  SPDX-License-Identifier: Apache-2.0
+  Note: no <select> or alert() here. This page runs in a floating window owned by a service,
+  where Android can't show dropdown dialogs. Chips and lists are used instead.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Wispr</title>
+<style>
+:root{
+  --bg:#fffdfa; --sunk:#f3ece4; --line:#e4dbd0; --ink:#191911; --ink-2:#53534a; --ink-3:#6a6962;
+  --accent:#f26b0f; --accent-2:#ff8a1f; --accent-soft:#ffeadb; --ok:#2e854d; --err:#be2f2c;
+  --r:22px; --ease:cubic-bezier(0.16,1,0.3,1);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Noto Sans","Noto Sans Devanagari",sans-serif;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#1c1510; --sunk:#271d16; --line:#3a2c21; --ink:#f6efe7; --ink-2:#d2c5b8; --ink-3:#a39486;
+  --accent:#ff8a1f; --accent-2:#ffa24a; --accent-soft:#3a2414; --ok:#4cc38a; --err:#ff6b5e;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:transparent}
+body{font-family:var(--font);font-size:15px;line-height:1.45;color:var(--ink);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;overflow:hidden}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:8px}
+.hidden{display:none!important}
+
+.card{height:100%;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.top{display:flex;align-items:center;gap:8px;padding:10px 10px 6px 16px}
+.brand{font-weight:800;letter-spacing:-.04em;font-size:1.15rem;display:flex;align-items:center;gap:6px;margin-right:auto}
+.brand i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent-2)}
+.ibtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--ink-2)}
+.ibtn:active{background:var(--sunk);transform:scale(.95)}
+
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:0 10px;background:var(--sunk);padding:4px;border-radius:14px}
+.tabs button{min-height:36px;border-radius:10px;font-size:.8125rem;font-weight:700;color:var(--ink-2);transition:background .2s,color .2s}
+.tabs button[aria-selected="true"]{background:var(--bg);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.body{flex:1;min-height:0;overflow-y:auto;padding:12px 14px 22px;overscroll-behavior:contain}
+.vlive{display:flex;align-items:center;gap:8px;font-size:.8rem;font-weight:700;color:var(--err);padding:4px 6px 6px}
+.vlive i{width:8px;height:8px;border-radius:50%;background:var(--err);animation:vp 1s infinite}
+@keyframes vp{50%{opacity:.25}}
+@media (max-height:420px){.top{padding:6px 8px 4px 12px}.ibtn{width:32px;height:32px}.tabs button{min-height:30px}.body{padding:8px 10px 20px}.lbl{margin:8px 0 4px}.big{min-height:44px}.note{display:none}}
+@media (max-width:320px){.tabs button{font-size:.72rem}.brand{font-size:1rem}}
+.lbl{font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:14px 0 6px}
+.lbl:first-child{margin-top:2px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--sunk);padding:4px;border-radius:14px}
+.seg button{min-height:40px;border-radius:10px;font-weight:700;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:999px;font-size:.8125rem;font-weight:600;white-space:nowrap;color:var(--ink-2)}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--ink)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.row b{display:block;font-size:.9375rem}
+.row small{display:block;color:var(--ink-3);font-size:.78rem;line-height:1.3}
+.switch{appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:999px;background:var(--line);position:relative;flex:none;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .25s var(--ease)}
+.switch:checked{background:var(--accent)}
+.switch:checked::after{transform:translateX(18px)}
+.big{width:100%;min-height:52px;border-radius:16px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px}
+.big.go{background:linear-gradient(#ffa340,#f06a0a);color:#fff;box-shadow:0 10px 24px -12px rgba(242,107,15,.8)}
+.big.soft{background:var(--sunk);color:var(--ink)}
+.big:active{transform:scale(.98)}
+.big:disabled{opacity:.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.note{font-size:.78rem;color:var(--ink-3);margin-top:8px}
+
+/* chat */
+#t-chat{display:flex;flex-direction:column;height:100%}
+.msgs{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:8px}
+.m{max-width:88%;padding:9px 12px;border-radius:16px;white-space:pre-wrap;word-wrap:break-word;font-size:.9375rem}
+.m.u{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:6px}
+.m.a{align-self:flex-start;background:var(--sunk);border-bottom-left-radius:6px}
+.m.e{align-self:center;color:var(--err);background:none;font-size:.85rem;text-align:center}
+.m.w{align-self:flex-start;color:var(--ink-3);background:none;font-style:italic}
+.acts{display:flex;gap:4px;margin-top:6px}
+.acts button{font-size:.75rem;font-weight:700;color:var(--accent);padding:4px 8px;border-radius:8px;background:var(--bg)}
+.empty{margin:auto;text-align:center;color:var(--ink-3);font-size:.875rem;max-width:30ch}
+.empty b{display:block;color:var(--ink);font-size:1rem;margin-bottom:4px}
+.sugs{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
+.composer{display:flex;align-items:flex-end;gap:6px;border:1px solid var(--line);border-radius:18px;padding:5px;background:var(--bg)}
+.composer textarea{flex:1;border:0;background:transparent;resize:none;max-height:110px;min-height:36px;padding:7px 8px;font-size:.9375rem;outline:none}
+.cbtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex:none;color:var(--ink-2)}
+.cbtn.send{background:var(--accent);color:#fff}
+.cbtn.send:disabled{opacity:.4}
+.cbtn.mic[data-on="true"]{background:var(--err);color:#fff;box-shadow:0 0 0 calc(var(--lv,0)*10px) rgba(229,72,77,.25)}
+
+/* screen */
+.result{margin-top:12px;background:var(--sunk);border-radius:16px;padding:12px;white-space:pre-wrap;word-wrap:break-word;font-size:.9375rem;min-height:60px}
+.result.wait{color:var(--ink-3);font-style:italic}
+.result.err{color:var(--err)}
+
+/* models */
+.mlist{display:grid;gap:6px}
+.mi{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:14px}
+.mi[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.mi .dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:none}
+.mi[aria-pressed="true"] .dot{border:5px solid var(--accent)}
+.mi b{display:block;font-size:.875rem}
+.mi small{display:block;font-size:.75rem;color:var(--ink-3)}
+.tag{font-size:.625rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:6px;background:var(--sunk);color:var(--ink-2);margin-left:4px}
+.mi.off{opacity:.45}
+.toast{position:fixed;left:50%;bottom:14px;transform:translate(-50%,160%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:999px;font-size:.8125rem;font-weight:600;transition:transform .3s var(--ease);white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+.toast.show{transform:translate(-50%,0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="card" role="dialog" aria-label="Wispr mini window">
+  <div class="top">
+    <div class="brand">wispr<i></i></div>
+    <button class="ibtn" id="sizeBtn" aria-label="Window size: small, medium, large"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></button>
+    <button class="ibtn" id="openApp" aria-label="Open the full Wispr app"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></button>
+    <button class="ibtn" id="close" aria-label="Close"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="home" aria-selected="true">Dictate</button>
+    <button role="tab" data-tab="chat" aria-selected="false">AI Chat</button>
+    <button role="tab" data-tab="screen" aria-selected="false">Screen</button>
+    <button role="tab" data-tab="models" aria-selected="false">Models</button>
+  </div>
+
+  <div class="body">
+    <!-- DICTATE -->
+    <section id="t-home">
+      <div class="lbl">Mode</div>
+      <div class="seg" id="modeSeg">
+        <button data-mode="write">Write</button><button data-mode="polish">Polish</button><button data-mode="translate">Translate</button>
+      </div>
+      <div class="lbl">I speak</div>
+      <div class="chips" id="langChips"></div>
+      <div id="targetWrap" class="hidden">
+        <div class="lbl">Translate into</div>
+        <div class="chips" id="targetChips"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div><b>Hindi script (हिन्दी)</b><small id="hindiNote">Off = Hinglish: “kal meeting hai”</small></div>
+        <input type="checkbox" class="switch" id="hindiSw" aria-label="Hindi script">
+      </div>
+      <button class="big go" id="dictate" style="margin-top:6px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg><span id="dictLbl">Speak into the text box</span></button>
+      <div class="two">
+        <button class="big soft" data-go="screen" data-run="1">🌐 Understand screen</button>
+        <button class="big soft" data-go="chat">✨ Ask AI</button>
+      </div>
+      <p class="note">Wispr only adds text where your cursor is. It never deletes what's already in your note.</p>
+    </section>
+
+    <!-- CHAT -->
+    <section id="t-chat" class="hidden">
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="vlive hidden" id="vlive" role="status"><i></i><span id="vliveT">Listening… 0:00</span></div>
+      <div class="composer">
+        <button class="cbtn mic" id="vbtn" aria-label="Speak your question" data-on="false"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg></button>
+        <textarea id="q" rows="1" placeholder="Ask anything… (type or tap the mic)" aria-label="Message"></textarea>
+        <button class="cbtn send" id="send" aria-label="Send" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
+      </div>
+    </section>
+
+    <!-- SCREEN -->
+    <section id="t-screen" class="hidden">
+      <div class="lbl">Explain in</div>
+      <div class="chips" id="explainChips"></div>
+      <div class="two">
+        <button class="big go" id="scrAuto">🌐 Understand</button>
+        <button class="big soft" id="scrOcr">📷 Scan picture (OCR)</button>
+      </div>
+      <div class="result wait" id="scrOut">Tap Understand: Wispr reads this screen in any language and explains it. Scan picture reads text inside images, videos and PDFs.</div>
+      <div class="acts hidden" id="scrActs">
+        <button data-act="copy">Copy</button><button data-act="insert">Insert</button><button data-act="ask">Ask AI about it</button>
+      </div>
+      <p class="note" id="scrNote">Only when you tap. Screen text is sent over HTTPS to Groq with your key, nothing is saved.</p>
+    </section>
+
+    <!-- MODELS -->
+    <section id="t-models" class="hidden">
+      <p class="note" style="margin-top:0">All free on Groq's free plan (no paid subscription). <b>Preview</b> models can be removed by Groq anytime; Wispr then switches back automatically.</p>
+      <div class="lbl">Speech to text</div><div class="mlist" id="mStt"></div>
+      <div class="lbl">Polish &amp; translate</div><div class="mlist" id="mLlm"></div>
+      <div class="lbl">AI chat</div><div class="mlist" id="mChat"></div>
+      <div class="lbl">Screen scan (reads images)</div><div class="mlist" id="mVision"></div>
+      <button class="big soft" id="refresh" style="margin-top:14px">↻ Check what's live on Groq</button>
+      <p class="note" id="refreshNote"></p>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* Wispr by Deepu Gupta. Copyright 2026 Deepu Gupta. SPDX-License-Identifier: Apache-2.0 */
+(() => {
+  "use strict";
+  const N = window.WisprPanel;
+  if (!N) return;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  let S = JSON.parse(N.getSettings());
+  const set = (k, v) => { S[k] = v; N.setSetting(k, JSON.stringify(v)); };
+  document.documentElement.dataset.theme = S.dark ? "dark" : "light";
+
+  /* bridge promises */
+  const pend = {}; let seq = 0;
+  window.WisprCb = (id, ok, data) => { const p = pend[id]; if (!p) return; delete pend[id]; ok ? p.res(data) : p.rej(new Error(data)); };
+  window.WisprStatus = (id, msg) => { const p = pend[id]; if (p && p.status) p.status(msg); };
+  const call = (fn, status) => new Promise((res, rej) => { const id = "p" + (++seq); pend[id] = {res, rej, status}; fn(id); });
+
+  let toastT;
+  function toast(m){ const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 1800); }
+
+  /* languages (same list as the app) */
+  const LANGS = [
+    ["hinglish","Hinglish"],["hi","हिन्दी Hindi"],["en","English"],["auto","Auto detect"],["bn","বাংলা"],["ta","தமிழ்"],["te","తెలుగు"],
+    ["mr","मराठी"],["gu","ગુજરાતી"],["kn","ಕನ್ನಡ"],["ml","മലയാളം"],["pa","ਪੰਜਾਬੀ"],["or","ଓଡ଼ିଆ"],["as","অসমীয়া"],["ur","اردو"],
+    ["ne","नेपाली"],["sd","سنڌي"],["si","සිංහල"],["ar","العربية"],["es","Español"],["fr","Français"],["de","Deutsch"],["pt","Português"],
+    ["ru","Русский"],["zh","中文"],["ja","日本語"],["ko","한국어"],["id","Indonesia"]
+  ];
+  const TARGETS = LANGS.filter(l => l[0] !== "auto");
+
+  function chips(el, list, cur, onPick){
+    el.innerHTML = list.map(([c,n]) => `<button class="chip" data-v="${c}" aria-pressed="${c === cur}">${esc(n)}</button>`).join("");
+    el.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; [...el.children].forEach(x => x.setAttribute("aria-pressed", String(x === b))); onPick(b.dataset.v); };
+    const on = el.querySelector('[aria-pressed="true"]'); if (on) on.scrollIntoView({inline:"center", block:"nearest"});
+  }
+
+  /* ---------- tabs ---------- */
+  let tab = "home";
+  function go(t){
+    tab = t;
+    document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+    ["home","chat","screen","models"].forEach(x => $("t-" + x).classList.toggle("hidden", x !== t));
+    if (t === "home") renderHome();
+    if (t === "chat") renderChat();
+    if (t === "models") renderModels();
+    if (t !== "chat") { $("q").blur(); }
+  }
+  document.querySelector(".tabs").onclick = e => { const b = e.target.closest("button"); if (b) go(b.dataset.tab); };
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    go(b.dataset.go); if (b.dataset.run) understand("auto");
+  });
+  $("close").onclick = () => N.close();
+  $("sizeBtn").onclick = () => { if (!N.sizePreset) return; const n = N.sizePreset("cycle"); toast((n || "New") + " size · drag the corner to resize, the top bar to move"); };
+  $("openApp").onclick = () => N.openApp();
+  window.WisprBack = () => { if (vOn) { stopVoice(true); return true; } if (tab !== "home") { go("home"); return true; } return false; };
+  window.WisprPanelTab = (t, run) => { go(t); if (run) understand("auto"); };
+
+  /* ---------- dictate ---------- */
+  function renderHome(){
+    document.querySelectorAll("#modeSeg button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)));
+    $("targetWrap").classList.toggle("hidden", S.mode !== "translate");
+    chips($("langChips"), LANGS, S.lang, v => { set("lang", v); if (v === "hi") set("deva", true); else if (v === "hinglish") set("deva", false); renderHindi(); });
+    chips($("targetChips"), TARGETS, S.target, v => set("target", v));
+    renderHindi();
+    $("dictLbl").textContent = N.hasTarget() ? "Speak into the text box" : "Speak (tap a text box first)";
+  }
+  function renderHindi(){
+    const on = S.lang === "hi" || (!!S.deva && S.lang !== "hinglish");
+    $("hindiSw").checked = on;
+    $("hindiNote").textContent = on ? "On = Devanagari: “कल मीटिंग है”" : "Off = Hinglish: “kal meeting hai”";
+  }
+  $("modeSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; set("mode", b.dataset.mode); renderHome(); toast(b.textContent + " mode"); };
+  $("hindiSw").onchange = e => {
+    const on = e.target.checked; set("deva", on);
+    if (on && S.lang === "hinglish") set("lang", "hi");
+    if (!on && S.lang === "hi") set("lang", "hinglish");
+    renderHome(); toast(on ? "Hindi in Devanagari" : "Hindi in Hinglish (Roman)");
+  };
+  $("dictate").onclick = () => N.dictate();
+
+  /* ---------- chat ---------- */
+  let chat = [], chatBusy = false, lastScreen = "";
+  try { chat = JSON.parse(N.chatHistory()); } catch { chat = []; }
+  const SUGS = ["Reply to this politely", "Summarise in 3 points", "Translate to English", "Write a WhatsApp message"];
+  function renderChat(extra){
+    const box = $("msgs");
+    if (!chat.length && !extra){
+      box.innerHTML = `<div class="empty"><b>Wispr AI</b>Chat on any screen with your Groq key. Type, or tap the mic and speak Hinglish, Hindi or any language.<div class="sugs">${SUGS.map(s => `<button class="chip" data-sug="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`;
+      return;
+    }
+    box.innerHTML = chat.map((m,i) => m.role === "user"
+      ? `<div class="m u">${esc(m.text)}</div>`
+      : `<div class="m a">${esc(m.text)}<div class="acts"><button data-ci="${i}" data-act="insert">Insert</button><button data-ci="${i}" data-act="copy">Copy</button></div></div>`).join("") + (extra || "");
+    box.scrollTop = box.scrollHeight;
+  }
+  $("msgs").onclick = e => {
+    const s = e.target.closest("[data-sug]");
+    if (s){ const pre = lastScreen ? `${s.dataset.sug}:\n\n${lastScreen}` : s.dataset.sug; $("q").value = pre; syncSend(); return; }
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const m = chat[+b.dataset.ci]; if (!m) return;
+    if (b.dataset.act === "copy") { N.copy(m.text); toast("Copied"); }
+    else N.insert(m.text);
+  };
+  const q = $("q");
+  function syncSend(){ $("send").disabled = chatBusy || !q.value.trim(); q.style.height = "auto"; q.style.height = Math.min(110, q.scrollHeight) + "px"; }
+  q.addEventListener("input", syncSend);
+  q.addEventListener("focus", () => { N.keyboard(true); setTimeout(() => { const b = $("msgs"); b.scrollTop = b.scrollHeight; }, 600); });
+  window.addEventListener("resize", () => { const b = $("msgs"); if (b) b.scrollTop = b.scrollHeight; });
+  q.addEventListener("blur", () => N.keyboard(false));
+  q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
+  $("send").onclick = send;
+  async function send(){
+    const text = q.value.trim(); if (!text || chatBusy) return;
+    chatBusy = true; q.value = ""; syncSend();
+    chat.push({role:"user", text});
+    renderChat(`<div class="m w" id="thinking">Thinking…</div>`);
+    try {
+      const a = await call(id => N.chat(text, id), m => { const t = $("thinking"); if (t) t.textContent = m; });
+      chat.push({role:"assistant", text:a});
+      renderChat();
+    } catch (e) {
+      chat.pop(); q.value = text;
+      renderChat(`<div class="m e">${esc(e.message)}</div>`);
+    } finally { chatBusy = false; syncSend(); }
+  }
+
+  /* voice into the chat box */
+  let vOn = false, vT = null;
+  $("vbtn").onclick = () => vOn ? stopVoice(false) : startVoice();
+  function startVoice(){
+    if (!N.voiceStart()) { toast("Mic not available"); return; }
+    vOn = true; $("vbtn").dataset.on = "true"; q.placeholder = "Listening… tap the mic again to finish";
+    const t0 = Date.now(); $("vlive").classList.remove("hidden");
+    vT = setInterval(() => {
+      $("vbtn").style.setProperty("--lv", Math.min(1, N.voiceLevel() * 3).toFixed(2));
+      const s = Math.floor((Date.now() - t0) / 1000); $("vliveT").textContent = "Listening… " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0") + " · tap the mic to finish";
+    }, 120);
+  }
+  async function stopVoice(cancel){
+    if (!vOn) return;
+    vOn = false; clearInterval(vT); $("vbtn").dataset.on = "false"; $("vbtn").style.setProperty("--lv", 0); $("vlive").classList.add("hidden");
+    q.placeholder = "Ask anything… (type or tap the mic)";
+    if (cancel) { N.voiceCancel(); return; }
+    q.placeholder = "Writing it down…";
+    try {
+      const t = await call(id => N.voiceStop(id), m => { q.placeholder = m; });
+      q.value = (q.value ? q.value.trimEnd() + " " : "") + t; syncSend();
+      q.scrollTop = q.scrollHeight; toast("Check the text, then tap send");
+    } catch (e) { toast(e.message); }
+    finally { q.placeholder = "Ask anything… (type or tap the mic)"; }
+  }
+
+  /* ---------- screen ---------- */
+  let scrBusy = false, scrText = "";
+  chips($("explainChips"), TARGETS, S.explainIn || "hinglish", v => set("explainIn", v));
+  if (!N.canScan()) { $("scrOcr").disabled = true; $("scrNote").textContent = "Scan picture (OCR) needs Android 11+. Understand still reads on-screen text on your phone."; }
+  $("scrAuto").onclick = () => understand("auto");
+  $("scrOcr").onclick = () => understand("ocr");
+  async function understand(mode){
+    if (scrBusy) return;
+    scrBusy = true; const out = $("scrOut");
+    out.className = "result wait"; out.textContent = mode === "ocr" ? "Scanning the screen…" : "Reading the screen…";
+    $("scrActs").classList.add("hidden"); $("scrAuto").disabled = $("scrOcr").disabled = true;
+    try {
+      scrText = await call(id => N.understand(mode, id), m => { out.textContent = m; });
+      out.className = "result"; out.textContent = scrText; lastScreen = scrText.slice(0, 3000);
+      $("scrActs").classList.remove("hidden");
+    } catch (e) { out.className = "result err"; out.textContent = e.message; }
+    finally { scrBusy = false; $("scrAuto").disabled = false; $("scrOcr").disabled = !N.canScan(); }
+  }
+  $("scrActs").onclick = e => {
+    const b = e.target.closest("[data-act]"); if (!b || !scrText) return;
+    if (b.dataset.act === "copy") { N.copy(scrText); toast("Copied"); }
+    else if (b.dataset.act === "insert") N.insert(scrText);
+    else { go("chat"); q.value = "About this screen:\n" + scrText.slice(0, 2500) + "\n\nMy question: "; syncSend(); q.focus(); }
+  };
+
+  /* ---------- models ---------- */
+  let MODELS = [];
+  function loadModels(){ try { MODELS = JSON.parse(N.models()); } catch { MODELS = []; } }
+  function mlist(el, list, key){
+    el.innerHTML = list.map(m => `<button class="mi${m.live ? "" : " off"}" data-id="${esc(m.id)}" aria-pressed="${m.id === S[key]}"><i class="dot"></i><span><b>${esc(m.label)}${m.preview ? '<span class="tag">Preview</span>' : ""}${m.vision ? '<span class="tag">Vision</span>' : ""}${m.web ? '<span class="tag">Web</span>' : ""}${m.live ? "" : '<span class="tag">Not live</span>'}</b><small>${esc(m.note)}</small></span></button>`).join("");
+    el.onclick = e => { const b = e.target.closest(".mi"); if (!b) return; set(key, b.dataset.id); renderModels(); toast("Using " + b.querySelector("b").firstChild.textContent); };
+  }
+  function renderModels(){
+    S = JSON.parse(N.getSettings());
+    const stt = MODELS.filter(m => m.kind === "stt"), text = MODELS.filter(m => m.kind === "text");
+    mlist($("mStt"), stt, "stt");
+    mlist($("mLlm"), text.filter(m => !m.web), "llm");      // web-search models are chat-only
+    mlist($("mChat"), text, "chatModel");
+    mlist($("mVision"), text.filter(m => m.vision), "visionModel");
+  }
+  $("refresh").onclick = async () => {
+    const n = $("refreshNote"); n.textContent = "Asking Groq…";
+    try { MODELS = JSON.parse(await call(id => N.refreshModels(id))); renderModels(); n.textContent = "Updated. Faded ones aren't available for your key right now."; }
+    catch (e) { n.textContent = e.message; }
+  };
+
+  /* ---------- boot ---------- */
+  loadModels(); renderHome(); syncSend();
+  const h = new URLSearchParams(location.hash.slice(1));
+  const t0 = h.get("tab");
+  go(["home","chat","screen","models"].includes(t0) ? t0 : "home");
+  if (h.get("auto") === "1") understand("auto");
+})();
+</script>
+</body>
+</html>
