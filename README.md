@@ -122,5 +122,5 @@ Audio, and screen text when **you** tap Understand, go only to Groq over HTTPS, 
 
 ## License
 
-Copyright 2026 Deepu Gupta. Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).
+Copyright 2026 CTJ. Licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE).
 Forks are welcome under the licence. Please use your own app name and icon (Apache 2.0 §6 does not grant trademark rights).
