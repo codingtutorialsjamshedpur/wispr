@@ -5,7 +5,6 @@ A fork of [Wispr by Deepu Gupta](https://github.com/DeepuExplainsAi/ALWAYSWISPR)
 
 
 
-https://github.com/user-attachments/assets/a830ca98-6e18-4123-a721-9fabcec612f3
 
 
 
